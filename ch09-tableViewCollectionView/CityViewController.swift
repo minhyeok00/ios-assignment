@@ -1,93 +1,52 @@
-//
-//  ViewController.swift
-//  ch09-tableViewCollectionView
-//
-//  Created by jmleehs on 5/1/26.
-//
-
 import UIKit
 
-class CityViewController: UIViewController {
+class CityViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+
+    @IBOutlet weak var tableView: UITableView!
     
-    @IBOutlet weak var descriptionLabel: UILabel!
-    @IBOutlet weak var cityTableView: UITableView!
+    var cities = City.prepareCity()
     
-    var cities: [City] = ch09_tableViewCollectionView.load("cityData.json")!
-    
+    // 이미지 캐싱을 위한 이미지풀 선언
+    var imagePool = [String: UIImage]()
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
-        
-        cityTableView.register(UITableViewCell.self, forCellReuseIdentifier: "ymlee")
-        
-        cityTableView.dataSource = self
-        cityTableView.delegate = self
-        
-        cityTableView.selectRow(at: IndexPath(row: 0, section: 0), animated: true, scrollPosition: .top)
-        descriptionLabel.text = cities[0].description
+        tableView.dataSource = self
+        tableView.delegate = self
     }
-    
-    @IBAction func editingTableRow(_ sender: UIBarButtonItem) {
-            if cityTableView.isEditing == true{
-                sender.title = "Edit"
-                cityTableView.isEditing = false
-            }else{
-                sender.title = "Done"
-                cityTableView.isEditing = true
-            }
-    }
-}
 
-
-extension CityViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return cities.count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        //let cell = UITableViewCell()
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ymlee")!
-        
-        // 이미지의 크기도 반영되지 않는다.
+        let cell = tableView.dequeueReusableCell(withIdentifier: "CityCell", for: indexPath)
         let city = cities[indexPath.row]
         
-        cell.imageView?.image = UIImage(named: city.imageName)?.resized(to: CGSize(width: 200, height: 100))
-
-        cell.textLabel?.text = city.name
-        cell.detailTextLabel?.text = city.country
-
-        cell.textLabel?.textAlignment = .right // 동작하지 않는다.
-        cell.accessoryType = .none
+        cell.textLabel?.text = city.cityName
+        
+        // 
+        if var image = imagePool[city.imageName] {
+            // 이미지풀에 있으면 리사이징해서 사용
+            image = image.resized(to: CGSize(width: 200, height: 100))
+            cell.imageView?.image = image
+        } else {
+            // 없으면 새로 생성 후 리사이징하여 이미지풀에 저장
+            cell.imageView?.image = UIImage(named: city.imageName)?.resized(to: CGSize(width: 200, height: 100))
+            imagePool[city.imageName] = cell.imageView?.image
+        }
+        
         return cell
     }
-}
-
-extension CityViewController: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        descriptionLabel.text = cities[indexPath.row].description
-    }
-    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        
-        // 테이불에서의 삭제는 TableViewr가 자동으로 한다.
-        if editingStyle == .delete{
-            // 반드시 데이터베이스에서 삭제를 하여야 한다.
-            cities.remove(at: indexPath.row)
-            tableView.reloadData()
-        }
-    }
-    // 이동하는 경우 호출된다.
-    func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        
-        // 테이블의 row는 TableView가 바꾸어주므로 데이터베이스만 바꾸어주면된다.
-        let city = cities.remove(at: sourceIndexPath.row)
-        cities.insert(city, at: destinationIndexPath.row)
-        tableView.reloadData()
-    }
     
-        func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-            return 100
+    // 데이터 전달을 위한 prepare 메서드 
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if let dest = segue.destination as? CityDetailViewController {
+            if let selectedIndex = tableView.indexPathForSelectedRow?.row {
+                dest.city = cities[selectedIndex]
+                // 상세 화면에서 메인 화면의 imagePool에 접근할 수 있게 자신(self)을 넘겨줌
+                dest.cityMasterViewController = self
+            }
         }
-
+    }
 }
-
